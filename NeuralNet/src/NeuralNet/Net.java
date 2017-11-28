@@ -6,12 +6,17 @@
 
 package NeuralNet;
 
+import NeuralNet.Math.*;
+import java.util.function.*;
+
 /**
  *
  * @author lexiphan
  */
 public class Net {
     private int[] m_LayerNeurons;
+    private Matrix[] m_LayerWeights = null;
+    private boolean m_NeedCreateWeights = true;
 
     public Net(int additionalLayers) throws IllegalArgumentException {
         this(1, 1, additionalLayers);
@@ -64,34 +69,81 @@ public class Net {
     }
     
     public void SetInputs(int inputs) throws IllegalArgumentException {
-        if (inputs <= 0) throw new IllegalArgumentException("Number of inputs cannot be zero or negative.");
-        m_LayerNeurons[0] = inputs;
+        SetNumberOfNeurons(0, inputs);
     }
     
     public void SetOutputs(int outputs) throws IllegalArgumentException {
-        if (outputs <= 0) throw new IllegalArgumentException("Number of outputs cannot be zero or negative.");
-        m_LayerNeurons[m_LayerNeurons.length - 1] = outputs;
+        SetNumberOfNeurons(m_LayerNeurons.length - 1, outputs);
     }
     
     public void SetNumberOfNeurons(int layer, int neurons) {
         if (layer < 0 && layer >= m_LayerNeurons.length) throw new IllegalArgumentException("Layer must be in range from 0 to NumberOfLayers-1.");
         if (neurons <= 0) throw new IllegalArgumentException("Number of neurons cannot be zero or negative.");
         m_LayerNeurons[layer] = neurons;
+        if (m_LayerWeights != null)
+        {
+            if (layer > 0) m_LayerWeights[layer - 1] = null;
+            if (layer < m_LayerNeurons.length) m_LayerWeights[layer] = null;
+        }
+        m_NeedCreateWeights = true;
+    }
+    
+    private void ValidateWeights()
+    {
+        if (m_NeedCreateWeights)
+        {
+            if (m_LayerWeights == null) m_LayerWeights = new Matrix[m_LayerNeurons.length - 1];
+            for (int i = 0; i < m_LayerWeights.length; i++)
+                if (m_LayerWeights[i] == null)
+                    m_LayerWeights[i] = new Matrix(m_LayerNeurons[i], m_LayerNeurons[i + 1]);
+            m_NeedCreateWeights = false;
+        }
     }
     
     public void InitializeWeights() {
-        
+        ValidateWeights();
+        for (int i = 0; i < m_LayerWeights.length; i++)
+        {
+            Matrix m = m_LayerWeights[i];
+            m.Randomize();
+            m.Multiply(0.99 / m.GetColumns());
+            m.Add(0.01 / m.GetColumns());
+        }
+    }
+    
+    private double NeuronFunction(double input) {
+        return 1.0 / (1.0 + Math.exp(input));
+    }
+    
+    private double NeuronFunctionInv(double input) {
+        return Math.log(1.0 / input - 1.0);
     }
     
     public void Train(double[] inputValues, double[] outputValues) {
         
     }
     
-    public double[] Calculate(double[] inputValues){
-        return null;
+    public double[] Calculate(double[] inputValues) {
+        assert inputValues != null;
+        assert inputValues.length == this.GetInputs();
+        if (m_LayerWeights == null || m_NeedCreateWeights) throw new IllegalStateException("Weights are not assigned. You need to train the network before calculate.");
+        Matrix result = Matrix.SingleRow(inputValues);
+        for (int i = 0; i < m_LayerWeights.length; i++) {
+            result = result.Product(m_LayerWeights[i]);
+            result.ApplyFunction(this::NeuronFunction);
+        }
+        return result.ToArray();
     }
     
     public double[] ReversedCalculate(double[] outputValues) {
-        return null;
+        assert outputValues != null;
+        assert outputValues.length == this.GetOutputs();
+        if (m_LayerWeights == null || m_NeedCreateWeights) throw new IllegalStateException("Weights are not assigned. You need to train the network before calculate.");
+        Matrix result = Matrix.SingleRow(outputValues);
+        for (int i = 0; i < m_LayerWeights.length; i++) {
+            result.ApplyFunction(this::NeuronFunctionInv);
+            result = result.Product(m_LayerWeights[i].Inverse());
+        }
+        return result.ToArray();
     }
 }
