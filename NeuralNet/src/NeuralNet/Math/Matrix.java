@@ -35,9 +35,32 @@ public class Matrix {
         m_Columns = columns;
         m_Items = java.util.Arrays.copyOf(values, m_Rows * columns);
     }
+
+    public Matrix(Matrix source) {
+        assert source != null : "source cannot be null.";
+        m_Rows = source.m_Rows;
+        m_Columns = source.m_Columns;
+        m_Transposed = source.m_Transposed;
+        m_Items = java.util.Arrays.copyOf(source.m_Items, source.m_Items.length);
+    }
+    
+    
     
     public double[] ToArray() {
-        return m_Items;
+        if (m_Transposed)
+        {
+            double[] arr = new double[m_Items.length];
+            for (int r = 0; r < m_Rows; r++) {
+                for (int c = 0; c < m_Columns; c++) {
+                    arr[r * m_Columns + c] = m_Items[c * m_Rows + r];
+                }
+            }
+            return arr;
+        }
+        else
+        {
+            return java.util.Arrays.copyOf(m_Items, m_Items.length);
+        }
     }
     
     public static Matrix SingleColumn(double ... values) {
@@ -107,9 +130,7 @@ public class Matrix {
     }
     
     public void SetAll(double value) {
-        for (int i = 0; i < m_Items.length; i++) {
-            m_Items[i] = value;
-        }
+        java.util.Arrays.fill(m_Items, value);
     }
     
     public void Randomize() {
